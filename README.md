@@ -80,6 +80,7 @@ jasna-ltx/
 npm install
 npm run dev
 npm test
+python3 -m unittest discover -s tests -p 'test_sync_javdb.py'
 npx wrangler deploy --dry-run
 npm run deploy
 ```

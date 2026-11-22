@@ -275,6 +275,7 @@ def main():
 
     # 补录：给缺少字幕信息的记录查一次（记录已查过的，逐批覆盖）
     filled = 0
+    shot_fixed = 0
     checked = set()
     try:
         checked = set(json.load(open(SUBCHK, encoding="utf-8")).get("checked") or [])
@@ -299,15 +300,16 @@ def main():
                 log("   补字幕 %-12s %s" % (code, u.split("/")[-1]))
             time.sleep(0.2)
         # 顺带给缺 shot 的记录补长截图
-        shot_fixed = 0
+        shot_checked = 0
         for x in items:
-            if shot_fixed >= args.backfill:
+            if shot_checked >= args.backfill:
                 break
             if (x.get("shot") or "").strip():
                 continue
             code2 = (x.get("code") or "").upper()
             if not code2:
                 continue
+            shot_checked += 1
             u2 = find_shot(code2)
             if u2:
                 x["shot"] = u2
@@ -328,7 +330,7 @@ def main():
         if added:
             log("样例:", json.dumps(added[0], ensure_ascii=False)[:400])
         return 0
-    if not added and filled == 0:
+    if not added and filled == 0 and shot_fixed == 0:
         return 0
 
     data["items"] = added + items

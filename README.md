@@ -87,9 +87,9 @@ npm run deploy
 
 `npm test` 會啟動獨立的本機 Worker 及暫存 KV，測試後自動清理；不使用正式 KV 或呼叫 GitHub dispatch。
 
-### 第三步：享受全自动同步
+### 第三步：啟用及驗證自動同步
 
-- 从此之后，**你完全不需要任何手动操作**！
-- 位于 `.github/workflows/sync.yml` 的 GitHub 定时机器人会在云端每 6 小时自动运行 `sync.js`。
-- 一旦检测到有新片发布，机器人会自动更新数据并提交到你的 GitHub。
-- Cloudflare 会在 10 秒内自动检测到 GitHub 变动，完成新资源的自动上线发布！
+- Fork 後，在 GitHub Actions 頁面啟用 Actions，再開啟 `sync.yml` 並選擇 **Enable workflow**；fork 的排程 workflow 預設停用。
+- `.github/workflows/sync.yml` 每六小時執行 `scripts/sync_javdb.py`。排程為 UTC `0 */6 * * *`，即台北時間 02:00、08:00、14:00、20:00；實際開始時間可能因 GitHub 排隊而延遲。
+- `POST /api/sync` 或 GitHub 的 **Run workflow** 可手動觸發同一流程。API 回應成功只代表已觸發，完整結果須查看該次 Actions run。
+- Workflow 發現資料變更後會提交到 `Kokase/jasna-ltx-site` 的 `main`，再由 Cloudflare 自動構建及部署。沒有新增項目時，既有資料的補錄仍會逐批執行。

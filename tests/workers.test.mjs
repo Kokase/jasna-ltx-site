@@ -61,6 +61,8 @@ async function api(path, body) {
 }
 
 test('serves the existing site, downloads, headers and SPA fallback', async () => {
+  const headers = await readFile(new URL('dist/client/_headers', root), 'utf8');
+  assert.equal(headers.startsWith('\uFEFF'), false, 'Cloudflare deployment rejects a BOM before the first header rule');
   for (const path of ['/index.html', '/css/style.css', '/js/app.js', '/data/movies.json',
     '/xd_plus.js', '/xd_plus.css', '/robots.txt', '/xdown/icon.svg', '/dl/XDown.apk']) {
     const response = await fetch(origin + path);

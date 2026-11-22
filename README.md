@@ -70,7 +70,7 @@ jasna-ltx/
    - **Root directory**：repo 根目錄（`/`）。
 4. Wrangler 的 `[build]` 會自動執行 `npm run build`，把原有 `functions/api/` 編譯成 `dist/worker/index.js`。`/api/*` 保留原有路由、HTTP method 及回應格式，其餘路徑由 Workers Static Assets 提供，並沿用 `_headers`。
 5. `wrangler.toml` 的 `LTX_KV` binding 指向此部署帳戶的 `jasna-ltx-site-LTX_KV` namespace。若 fork 到另一個帳戶，請先建立該帳戶的 KV namespace，再替換 `id`。沿用同一 namespace 才會保留現有資料；`npm run dev` 預設使用本機 KV。
-6. `/api/sync` 沿用原有的 runtime secret `GITHUB_TOKEN`；如需使用，請在 Worker 的 Variables and Secrets 設定，勿放入 Git 或僅設定於 build environment。此 API 的目標 repo 仍沿用原有的 `DowenAI/jasna-ltx-site`。
+6. `/api/sync` 使用 runtime secret `GITHUB_TOKEN` 觸發 `Kokase/jasna-ltx-site` 的 `sync.yml`（`main` branch）。Token 只需此 repo 的 Actions 讀寫權限，並須在 Worker 的 Variables and Secrets 中以 secret 設定，勿放入 Git 或僅設定於 build environment。Token 到期時須在此處更新；排程 workflow 本身使用 GitHub 自動提供的 `GITHUB_TOKEN`。
 
 `scripts/build-assets.mjs` 只把現有公開檔案及 `css/`、`js/`、`data/`、`dl/`、`xdown/` 複製至 `dist/client/`，避免上傳 server-side 程式碼、設定及依賴；新增其他公開檔案或目錄時須同步更新這份清單。
 

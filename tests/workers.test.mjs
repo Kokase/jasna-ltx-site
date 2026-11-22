@@ -42,6 +42,27 @@ before(async () => {
   });
 });
 
+test('dispatches sync to the deployment repository and accepts GitHub success responses', async () => {
+  const { default: compiled } = await import(new URL('../dist/worker/index.js', import.meta.url));
+  for (const status of [204, 200]) {
+    const upstream = mock.method(globalThis, 'fetch', async (url, options) => {
+      assert.equal(url, 'https://api.github.com/repos/Kokase/jasna-ltx-site/actions/workflows/sync.yml/dispatches');
+      assert.equal(options.method, 'POST');
+      assert.deepEqual(JSON.parse(options.body), { ref: 'main' });
+      assert.equal(options.headers.Authorization, 'Bearer test-token');
+      return new Response(null, { status });
+    });
+    try {
+      const response = await compiled.fetch(new Request('https://test.invalid/api/sync', { method: 'POST' }),
+        { GITHUB_TOKEN: 'test-token' }, { waitUntil() {} });
+      assert.equal(response.status, 200);
+      assert.equal((await response.json()).ok, true);
+    } finally {
+      upstream.mock.restore();
+    }
+  }
+});
+
 after(async () => {
   if (worker && worker.exitCode === null && worker.signalCode === null) {
     const exited = once(worker, 'exit');

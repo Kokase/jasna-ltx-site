@@ -1,5 +1,5 @@
 // POST /api/sync  -> 触发 GitHub Actions 更新工作流
-const REPO = 'DowenAI/jasna-ltx-site';
+const REPO = 'Kokase/jasna-ltx-site';
 const WF = 'sync.yml';
 
 export async function onRequestPost({ env }) {
@@ -21,7 +21,7 @@ export async function onRequestPost({ env }) {
         body: JSON.stringify({ ref: 'main' }),
       }
     );
-    if (r.status === 204) return json({ ok: true, msg: '更新已触发' });
+    if (r.status === 204 || r.status === 200) return json({ ok: true, msg: '更新已触发' });
     const txt = await r.text();
     return json({ ok: false, error: `GitHub ${r.status}: ${txt.slice(0, 120)}` }, 502);
   } catch (e) {

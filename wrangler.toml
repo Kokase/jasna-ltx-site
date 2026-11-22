@@ -14,5 +14,4 @@ not_found_handling = "single-page-application"
 
 [[kv_namespaces]]
 binding = "LTX_KV"
-id = "a803c3a1aed942e8b8435b6eb73765e3"
-preview_id = "3f268458897b4565a971a6f0d69a3848"
+id = "50b9707dde5a42c89a2f8d0f25d3584b"

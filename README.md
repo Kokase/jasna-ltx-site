@@ -39,7 +39,7 @@ jasna-ltx/
 ├── .github/
 │   └── workflows/
 │       └── sync.yml            # GitHub Actions 云端定时作业（每 6 小时自动跑）
-├── wrangler.toml               # Cloudflare Pages 配置文件
+├── wrangler.toml               # Cloudflare Workers 設定檔
 └── README.md
 ```
 
@@ -60,16 +60,31 @@ jasna-ltx/
    git push -u origin main
    ```
 
-### 第二步：在 Cloudflare Pages 绑定上线（终身免费）
+### 第二步：在 Cloudflare Workers 連接 Git
 
-1. 登录 [Cloudflare 控制台](https://dash.cloudflare.com/)。
-2. 点击左侧导航栏的 **“Workers 和 Pages”** -> **“创建”** -> 切换到 **“Pages”** 标签页。
-3. 选择 **“连接到 Git”**，选中你刚才新建的 `my-ltx-hub` 仓库。
-4. 在构建配置中：
-   - **框架预设**：选择 `None`（无）
-   - **构建输出目录**：填写 `.`（直接留空或输入一个点）
-5. 点击 **“保存并部署”**。
-   - 约 10 秒后，Cloudflare 就会生成一个属于你的专属公网网址（例如 `https://my-ltx-hub.pages.dev`）。
+1. 在 [Cloudflare 控制台](https://dash.cloudflare.com/) 開啟 Workers 和 Pages，建立或選擇 Worker `jasna-ltx-site`。
+2. 連接 Git repo `Kokase/jasna-ltx-site`，Production branch 選擇 `main`。
+3. 沿用以下 Workers Builds 設定：
+   - **Build command**：留空。
+   - **Deploy command**：`npx wrangler deploy`。
+   - **Root directory**：repo 根目錄（`/`）。
+4. Wrangler 的 `[build]` 會自動執行 `npm run build`，把原有 `functions/api/` 編譯成 `dist/worker/index.js`。`/api/*` 保留原有路由、HTTP method 及回應格式，其餘路徑由 Workers Static Assets 提供，並沿用 `_headers`。
+5. `wrangler.toml` 的 `LTX_KV` binding 須指向部署帳戶可存取的 KV namespace。目前保留 repo 原有的 `id` 及 `preview_id`；若 fork 到另一個帳戶，請替換成該帳戶的 namespace ID。沿用原 namespace 才會保留現有資料。
+6. `/api/sync` 沿用原有的 runtime secret `GITHUB_TOKEN`；如需使用，請在 Worker 的 Variables and Secrets 設定，勿放入 Git 或僅設定於 build environment。此 API 的目標 repo 仍沿用原有的 `DowenAI/jasna-ltx-site`。
+
+`scripts/build-assets.mjs` 只把現有公開檔案及 `css/`、`js/`、`data/`、`dl/`、`xdown/` 複製至 `dist/client/`，避免上傳 server-side 程式碼、設定及依賴；新增其他公開檔案或目錄時須同步更新這份清單。
+
+本機開發、驗證及部署：
+
+```bash
+npm install
+npm run dev
+npm test
+npx wrangler deploy --dry-run
+npm run deploy
+```
+
+`npm test` 會啟動獨立的本機 Worker 及暫存 KV，測試後自動清理；不使用正式 KV 或呼叫 GitHub dispatch。
 
 ### 第三步：享受全自动同步
 

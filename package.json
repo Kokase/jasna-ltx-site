@@ -1,9 +1,12 @@
 {
   "name": "jasna-ltx-site",
   "private": true,
-  "description": "Jasna-LTX static site + Pages Functions API",
+  "description": "Jasna-LTX static site + Workers API",
   "scripts": {
-    "deploy": "wrangler pages deploy . --project-name=jasna-ltx --branch=main"
+    "build": "node scripts/build-assets.mjs && wrangler pages functions build functions --outdir dist/worker",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test tests/workers.test.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.165.0"

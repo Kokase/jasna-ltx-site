@@ -51,6 +51,15 @@ jobs:
           if [ "$OVERWRITE_EXISTING" != "false" ]; then args+=(--overwrite-existing); fi
           python scripts/sync_javdb.py --max-add 20 "${args[@]}"
 
+      - name: 运行同步脚本
+        id: sync
+        continue-on-error: true
+        run: node scripts/sync.js
+        env:
+          NYAA_BASE: ${{ vars.NYAA_BASE || 'https://sukebei.nyaa.si' }}
+          NYAA_QUERY: ${{ vars.NYAA_QUERY || 'LTX' }}
+          MAX_ITEMS: '100'
+
       - name: 检查是否有变更
         id: verify
         run: |

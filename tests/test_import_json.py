@@ -107,6 +107,29 @@ class MergeTest(unittest.TestCase):
         self.assertEqual(result, target)
         self.assertEqual(report["conflicts"], [])
 
+    def test_fill_empty_only_preserves_nonempty_arrays_and_link_states(self):
+        old = {"code": "DEMO-001", "actors": ["A"], "links": ["existing"],
+               "pending_links": [], "maker": "", "score": 0, "pending": False}
+        source = [{"code": "DEMO-001", "actors": ["A", "B"],
+                   "links": ["existing", "new"], "pending_links": ["new"],
+                   "maker": "Studio", "score": 5, "pending": True}]
+        result, report = importer.merge_documents({"items": [old]}, source, NOW,
+                                                   fill_empty_only=True)
+        self.assertEqual(result["items"][0], {**old, "maker": "Studio"})
+        self.assertEqual(report["updated"][0]["fields"], ["maker"])
+
+    def test_fill_empty_only_still_fills_empty_arrays(self):
+        result, _ = importer.merge_documents({"items": [{"code": "DEMO-001", "actors": []}]},
+                                              [{"code": "DEMO-001", "actors": ["A"]}],
+                                              NOW, fill_empty_only=True)
+        self.assertEqual(result["items"][0]["actors"], ["A"])
+
+    def test_raw_score_only_new_record_has_compatible_score(self):
+        result, _ = importer.merge_documents({"items": []},
+                                              [{"code": "DEMO-001", "rawScore": 4.2}], NOW)
+        self.assertEqual(result["items"][0]["score"], 4.2)
+        self.assertEqual(result["items"][0]["rawScore"], 4.2)
+
     def test_does_not_guess_hyphens_or_remove_leading_zeroes(self):
         result, _ = importer.merge_documents({"items": []},
                                              [{"code": code} for code in
@@ -220,6 +243,18 @@ class ImportCliTest(unittest.TestCase):
     def test_utf8_bom_export_is_accepted(self):
         self.source.write_text('[{"code":"NEW-001"}]', encoding="utf-8-sig")
         self.assertEqual(self.run_import(), 0)
+
+    def test_supplied_images_and_links_fill_empty_fields_without_overwriting_existing_values(self):
+        current = {"items": [{"code": "LOCAL-001", "title": "Local", "cover": "",
+                              "links": [], "pending_links": []}]}
+        self.target.write_text(json.dumps(current))
+        self.source.write_text(json.dumps({"items": [{"code": "LOCAL-001", "title": "Other",
+            "cover": "https://example.invalid/image.jpg", "links": ["https://example.invalid/file"]}]}))
+        self.assertEqual(self.run_import("--apply", "--fill-empty-only"), 0)
+        result = json.loads(self.target.read_text())["items"][0]
+        self.assertEqual(result["title"], "Local")
+        self.assertEqual(result["cover"], "https://example.invalid/image.jpg")
+        self.assertEqual(result["links"], ["https://example.invalid/file"])
 
 
 if __name__ == "__main__":

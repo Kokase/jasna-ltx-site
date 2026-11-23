@@ -107,7 +107,7 @@ def normalized_item(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def merge_item(current: dict[str, Any], incoming: dict[str, Any],
-               conflicts: list[dict[str, Any]], scope: str = "existing"
+               conflicts: list[dict[str, Any]], scope: str = "existing", fill_empty_only: bool = False
                ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     result = deepcopy(current)
     changed = []
@@ -124,7 +124,7 @@ def merge_item(current: dict[str, Any], incoming: dict[str, Any],
                 if not is_empty(entry):
                     value[key] = merge(value.get(key), entry, f"{field}.{key}")
             return value
-        if isinstance(old, list) and isinstance(new, list):
+        if isinstance(old, list) and isinstance(new, list) and not fill_empty_only:
             value = deepcopy(old)
             for entry in new:
                 if entry not in value:
@@ -150,7 +150,7 @@ def merge_item(current: dict[str, Any], incoming: dict[str, Any],
                           "incoming": sorted(set(new_pending) & common)})
     pending = list(old_pending)
     for link in new_pending:
-        if link not in old_links and link not in pending:
+        if link not in old_links and link not in pending and link in result.get("links", []):
             pending.append(link)
     if pending != old_pending:
         result["pending_links"] = pending
@@ -167,13 +167,16 @@ def new_item(item: dict[str, Any], now: datetime) -> dict[str, Any]:
         "score": None, "rawScore": None, "pending": True,
         "added_at": int(now.timestamp() * 1000),
     }
+    if "score" not in item and "rawScore" in item:
+        defaults["score"] = item["rawScore"]
     defaults.update({key: deepcopy(value) for key, value in item.items()
                      if value is not None})
     return defaults
 
 
 def merge_documents(target: Any, incoming: Any,
-                    now: datetime) -> tuple[dict[str, Any], dict[str, Any]]:
+                    now: datetime, fill_empty_only: bool = False
+                    ) -> tuple[dict[str, Any], dict[str, Any]]:
     if not isinstance(target, dict) or not isinstance(target.get("items"), list):
         raise ValueError("Target must be an object containing an items array")
     result = deepcopy(target)
@@ -197,7 +200,8 @@ def merge_documents(target: Any, incoming: Any,
         key = item["code"]
         rows.setdefault(key, []).append(row)
         if key in unique:
-            unique[key], _ = merge_item(unique[key], item, report["conflicts"], "import_duplicates")
+            unique[key], _ = merge_item(unique[key], item, report["conflicts"],
+                                        "import_duplicates", fill_empty_only)
         else:
             unique[key] = item
     report["duplicates"] = [{"code": key, "rows": value}
@@ -209,7 +213,8 @@ def merge_documents(target: Any, incoming: Any,
             report["added_codes"].append(key)
             continue
         index = positions[key]
-        merged, changes = merge_item(result["items"][index], item, report["conflicts"])
+        merged, changes = merge_item(result["items"][index], item, report["conflicts"],
+                                     fill_empty_only=fill_empty_only)
         if changes:
             result["items"][index] = merged
             report["updated"].append({"code": key, "fields": [entry["field"] for entry in changes],
@@ -262,6 +267,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("source", type=Path, help="Local JSON export")
     parser.add_argument("--target", type=Path, default=ROOT / "data/movies.json")
     parser.add_argument("--report", type=Path, help="Write the full comparison report as JSON")
+    parser.add_argument("--fill-empty-only", action="store_true",
+                        help="Preserve non-empty arrays as well as existing scalar values")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--apply", action="store_true", help="Back up and write merged data")
     mode.add_argument("--dry-run", action="store_true", help="Preview only (the default)")
@@ -275,9 +282,10 @@ def main(argv: list[str] | None = None) -> int:
         original = target.read_bytes()
         current = parse_json(original)
         merged, report = merge_documents(current, parse_json(source.read_bytes()),
-                                         datetime.now(timezone.utc))
+                                         datetime.now(timezone.utc), args.fill_empty_only)
         report.update({"source": str(source), "target": str(target),
-                       "mode": "apply" if args.apply else "preview", "backup": None})
+                       "mode": "apply" if args.apply else "preview", "backup": None,
+                       "fill_empty_only": args.fill_empty_only})
         if report_path:
             report_path.parent.mkdir(parents=True, exist_ok=True)
             if report_path.is_dir():

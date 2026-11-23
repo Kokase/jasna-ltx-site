@@ -2,7 +2,11 @@
 const REPO = 'Kokase/jasna-ltx-site';
 const WF = 'sync.yml';
 
-export async function onRequestPost({ env }) {
+export async function onRequestPost({ request, env }) {
+  const mode = new URL(request.url).searchParams.get('mode') ?? 'all';
+  if (!['all', 'import'].includes(mode)) {
+    return json({ ok: false, error: 'Invalid sync mode. Use all or import.' }, 400);
+  }
   const token = env.GITHUB_TOKEN;
   if (!token) {
     return json({ ok: false, error: '服务器未配置 GITHUB_TOKEN' }, 500);
@@ -18,7 +22,7 @@ export async function onRequestPost({ env }) {
           'User-Agent': 'jasna-ltx-site',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ ref: 'main' }),
+        body: JSON.stringify({ ref: 'main', ...(mode === 'import' ? { inputs: { mode } } : {}) }),
       }
     );
     if (r.status === 204 || r.status === 200) return json({ ok: true, msg: '更新已触发' });
@@ -29,7 +33,12 @@ export async function onRequestPost({ env }) {
   }
 }
 
-export async function onRequestGet() {
+export async function onRequestGet({ request, env }) {
+  if (new URL(request.url).searchParams.get('audit') === '1') {
+    const response = await env.ASSETS.fetch(new URL('/data/sync-audit.json', request.url));
+    if (!response.ok) return json({ ok: false, error: 'Sync audit is unavailable' }, 502);
+    return json({ ok: true, data: await response.json() });
+  }
   return json({ ok: true, hint: 'POST 触发更新' });
 }
 

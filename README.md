@@ -90,14 +90,14 @@ npm run deploy
 ### 第三步：啟用及驗證自動同步
 
 - Fork 後，在 GitHub Actions 頁面啟用 Actions，再開啟 `sync.yml` 並選擇 **Enable workflow**；fork 的排程 workflow 預設停用。
-- `.github/workflows/sync.yml` 每六小時執行 `scripts/sync_javdb.py`。排程為 UTC `0 */6 * * *`，即台北時間 02:00、08:00、14:00、20:00；實際開始時間可能因 GitHub 排隊而延遲。
+- `.github/workflows/sync.yml` 每六小時先合併 `imports/sync-source.json`，再執行 `scripts/sync_javdb.py`。排程為 UTC `0 */6 * * *`，即台北時間 02:00、08:00、14:00、20:00；實際開始時間可能因 GitHub 排隊而延遲。
 - `POST /api/sync` 或 GitHub 的 **Run workflow** 可手動觸發同一流程。API 回應成功只代表已觸發，完整結果須查看該次 Actions run。
 - Workflow 發現資料變更後會提交到 `Kokase/jasna-ltx-site` 的 `main`，再由 Cloudflare 自動構建及部署。沒有新增項目時，既有資料的補錄仍會逐批執行。
 
 
 ### 同步範圍及圖片載入
 
-目前的 workflow 只從 JavDB 首頁、SIRO 及 GANA 分類頁挑選作品，每次最多新增 20 筆。新增項目是作品資料，下載連結仍然留空；這不是參考站的完整資料鏡像，重複執行不會自動補齊其歷史資料、下載連結、確認狀態或社群評分。要補齊歷史資料，須先取得可匯入的完整來源，再按番号比對及合併，保留本站已有資料。
+workflow 的 JavDB 步驟只從首頁、SIRO 及 GANA 分類頁挑選作品，每次最多新增 20 筆。新增項目是作品資料，下載連結仍然留空；這不是參考站的完整資料鏡像。JSON 合併步驟則只使用你提交至 `imports/sync-source.json` 的值，不會自行搜尋圖片或下載連結。
 
 作品列表每批顯示 24 張卡片，接近頁尾 300px 時追加下一批。海報及側欄頭像只在接近可視範圍時建立圖片元素，離開範圍後卸載；文字卡片及其尺寸保留，向上捲動時圖片重新載入。這限制了活躍圖片數量，但不會清除瀏覽器自行管理的圖片快取。
 
@@ -127,3 +127,24 @@ python3 scripts/import_json.py work/imports/export.json --apply --report work/im
 `--apply` 有實際變更時，會先把原檔逐 byte 備份到 `work/import-backups/`，再以同目錄暫存檔原子替換；如讀取後發現目標檔已改動，會停止並要求重新預覽。備份路徑寫入報告，備份及匯出工作目錄已排除於 Git，亦不在公開 assets 白名單內。`--target PATH` 可指定另一份資料檔作測試。
 
 匯入不修改 API、KV、secret 或六小時排程；現有自動同步仍會按番号略過已收錄作品。套用及測試後，檢查 `git diff -- data/movies.json`，再提交正式資料變更，Cloudflare 才會部署該份資料。請先更新本機 `main`，並避免在同一 checkout 同時執行匯入及同步程式。
+
+### API 更新時合併 JSON 及排查缺漏
+
+固定來源為 `imports/sync-source.json`，目前以既有 4,330 筆基本資料快照建立。之後把你提供的新 JSON 更新到此路徑並提交至 `main`，便可由同一個 API 或排程執行。來源檔只供 workflow 使用，不會複製到公開 assets；`source` 欄位只記錄出處，不會用來抓取外站。
+
+```bash
+# 沿用原有完整更新：先合併 JSON，再執行原有同步
+curl -X POST https://jasna-ltx-site.gugugwear.workers.dev/api/sync
+
+# 只合併已提供的 JSON，不執行外站抓取
+curl -X POST 'https://jasna-ltx-site.gugugwear.workers.dev/api/sync?mode=import'
+
+# 讀取正式部署資料的缺漏報告
+curl 'https://jasna-ltx-site.gugugwear.workers.dev/api/sync?audit=1'
+```
+
+API 的原有回應格式保留，POST 成功仍只表示已觸發 Actions。workflow 會先跑匯入測試，再以 `--fill-empty-only` 合併：非空字串、數字、布林及陣列均保留，只有空值才補入；已有連結的確認狀態亦保留。沒有資料變更時不會提交多餘的資料更新。有變更時沿用原有 bot commit 及 Cloudflare 部署流程。
+
+若提供的 JSON 包含 `cover`、`shot`、`links` 或單一 `link`，可依上述規則補入空白欄位；現有快照沒有這些內容，因此不會因此新增圖片或連結。只有 `rawScore` 的新紀錄會同時以此值初始化網站使用的 `score`。
+
+每次 build 會根據部署資料產生 `data/sync-audit.json`，由 `GET /api/sync?audit=1` 回傳。報告的 `updated_at` 是資料版本，並列出 `total`、`missing_cover`、`missing_links`、`missing_both`、`complete` 及各番号的 `missing` 欄位。這只檢查封面和連結欄位是否有值，不會測試遠端 URL 是否有效；報告本身不含圖片或下載 URL。

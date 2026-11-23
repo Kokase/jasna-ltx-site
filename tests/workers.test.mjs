@@ -63,6 +63,46 @@ test('dispatches sync to the deployment repository and accepts GitHub success re
   }
 });
 
+test('dispatches JSON-only sync without changing the default workflow contract', async () => {
+  const { default: compiled } = await import(new URL('../dist/worker/index.js', import.meta.url));
+  const upstream = mock.method(globalThis, 'fetch', async (url, options) => {
+    assert.equal(url, 'https://api.github.com/repos/Kokase/jasna-ltx-site/actions/workflows/sync.yml/dispatches');
+    assert.deepEqual(JSON.parse(options.body), { ref: 'main', inputs: { mode: 'import' } });
+    return new Response(null, { status: 204 });
+  });
+  try {
+    const response = await compiled.fetch(new Request('https://test.invalid/api/sync?mode=import',
+      { method: 'POST' }), { GITHUB_TOKEN: 'test-token' }, { waitUntil() {} });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).ok, true);
+  } finally {
+    upstream.mock.restore();
+  }
+});
+
+test('rejects unsupported sync modes before dispatching', async () => {
+  const { default: compiled } = await import(new URL('../dist/worker/index.js', import.meta.url));
+  const response = await compiled.fetch(new Request('https://test.invalid/api/sync?mode=unknown',
+    { method: 'POST' }), {}, { waitUntil() {} });
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).ok, false);
+});
+
+test('serves a deployed-data audit without exposing image or download URLs', async () => {
+  const result = await api('/api/sync?audit=1');
+  assert.equal(result.response.status, 200);
+  assert.equal(result.response.headers.get('Cache-Control'), 'no-store');
+  assert.equal(result.body.ok, true);
+  const audit = result.body.data;
+  const document = JSON.parse(await readFile(new URL('data/movies.json', root), 'utf8'));
+  assert.equal(audit.total, document.items.length);
+  assert.equal(audit.updated_at, document.updated_at);
+  assert.equal(audit.complete + audit.records.length, audit.total);
+  assert.equal(audit.missing_cover + audit.missing_links - audit.missing_both, audit.records.length);
+  assert.ok(audit.records.every(record => Object.keys(record).sort().join() === 'code,missing'));
+  assert.ok(audit.records.every(record => record.missing.every(field => ['cover', 'links'].includes(field))));
+});
+
 after(async () => {
   if (worker && worker.exitCode === null && worker.signalCode === null) {
     const exited = once(worker, 'exit');
@@ -103,7 +143,8 @@ test('serves the existing site, downloads, headers and SPA fallback', async () =
 test('does not publish server source, configuration or generated bundles', async () => {
   const home = await readFile(new URL('index.html', root), 'utf8');
   for (const path of ['/wrangler.toml', '/package.json', '/functions/api/sync.js',
-    '/scripts/sync.js', '/dist/worker/index.js', '/.git/config', '/tests/workers.test.mjs']) {
+    '/scripts/sync.js', '/scripts/sync-audit.mjs', '/imports/sync-source.json', '/dist/worker/index.js',
+    '/.git/config', '/tests/workers.test.mjs']) {
     const response = await fetch(origin + path);
     assert.ok(response.status === 404 || response.status === 200, path);
     if (response.status === 200) assert.equal(await response.text(), home, path);

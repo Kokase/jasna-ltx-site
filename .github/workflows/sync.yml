@@ -2,7 +2,15 @@ name: 自动更新 Jasna-LTX 数据
 on:
   schedule:
     - cron: '0 */6 * * *'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Sync scope'
+        type: choice
+        default: all
+        options:
+          - all
+          - import
 
 permissions:
   contents: write
@@ -26,7 +34,13 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Merge supplied JSON
+        run: |
+          python -m unittest discover -s tests -p 'test_import_json.py'
+          python scripts/import_json.py imports/sync-source.json --fill-empty-only --apply --report work/imports/sync-import-report.json
+
       - name: 抓取 JavDB 最新作品
+        if: inputs.mode != 'import'
         run: python scripts/sync_javdb.py --max-add 20
 
       - name: 检查是否有变更

@@ -1,0 +1,30 @@
+{
+  "items": [
+    {
+      "actors": [],
+      "added_at": 1795443194225,
+      "code": "LTXS-010",
+      "comments": 0,
+      "cover": "",
+      "date": "2010-08-09",
+      "director": "",
+      "genres": [],
+      "likers": 0,
+      "link": "https://nyaa.si/download/149962.torrent",
+      "linkPending": false,
+      "linkType": "ed2k",
+      "score": 0,
+      "title": "Sora wo Aogite Kumo Takaku OP&ED Single — Let's start now [Sakakibara Yui] [flac+scans(bmp)+cue+log] [LTXS-010]",
+      "_source": "nyaa:auto"
+    }
+  ],
+  "updated_at": "2026-11-23T14:13:14.229Z",
+  "nyaa": {
+    "checked_at": 1795443194229,
+    "ok": true,
+    "error": null,
+    "added": 1
+  },
+  "actors": [],
+  "genres": []
+}

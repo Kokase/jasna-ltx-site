@@ -9,3 +9,5 @@ scripts/temp*
 .wrangler/
 dist/
 .dev.vars
+work/imports/
+work/import-backups/

@@ -80,7 +80,7 @@ jasna-ltx/
 npm install
 npm run dev
 npm test
-python3 -m unittest discover -s tests -p 'test_sync_javdb.py'
+python3 -m unittest discover -s tests -p 'test_*.py'
 npx wrangler deploy --dry-run
 npm run deploy
 ```
@@ -100,3 +100,30 @@ npm run deploy
 目前的 workflow 只從 JavDB 首頁、SIRO 及 GANA 分類頁挑選作品，每次最多新增 20 筆。新增項目是作品資料，下載連結仍然留空；這不是參考站的完整資料鏡像，重複執行不會自動補齊其歷史資料、下載連結、確認狀態或社群評分。要補齊歷史資料，須先取得可匯入的完整來源，再按番号比對及合併，保留本站已有資料。
 
 作品列表每批顯示 24 張卡片，接近頁尾 300px 時追加下一批。海報及側欄頭像只在接近可視範圍時建立圖片元素，離開範圍後卸載；文字卡片及其尺寸保留，向上捲動時圖片重新載入。這限制了活躍圖片數量，但不會清除瀏覽器自行管理的圖片快取。
+
+### 本機 JSON 匯入及差異報告
+
+`scripts/import_json.py` 只讀取你提供的本機 JSON，不會連接或抓取外站。接受 `{"items": [...]}` 或直接的作品陣列，每筆必須有非空字串 `code`；作品欄位沿用 `data/movies.json` 格式。先把匯出檔放到 `work/imports/export.json`，再預覽：
+
+```bash
+python3 scripts/import_json.py work/imports/export.json --report work/imports/preview.json
+```
+
+預設只產生報告，不修改作品資料。報告包含新增番号、本站獨有番号、每個補入欄位的前後值、重複列及衝突的雙方值。檢查報告後，可明確套用：
+
+```bash
+python3 scripts/import_json.py work/imports/export.json --apply --report work/imports/applied.json
+```
+
+合併規則：
+
+- 番号只忽略大小寫及首尾空白；保留中間符號和前置零，避免誤認不同作品。
+- 匯入檔的重複番号先合併，衝突時保留最先出現的非空值。若本站資料本身有重複番号，工具會停止，避免自動刪除既有紀錄。
+- 已有作品的非空值優先，`0` 和 `false` 亦屬有效值。只補 `null`、空白字串、空陣列或空物件；陣列以原順序追加不重複內容，物件逐欄合併。本站獨有作品、欄位及排列次序保留，新作品追加到尾部。
+- 同時接受單一 `link` 和 `links` 陣列，會補齊網站使用的 `links`。既有連結的確認狀態不變；新連結沿用匯出檔的 `pending_links`，只有未提供此陣列時才使用單一連結的 `linkPending`。缺少狀態的新作品預設待確認，不會自動核實外部連結。
+- 新作品會補齊網站必須的欄位及型別。根層 `avatars`、`genres`、`buzz`、統計等 metadata 保留本站版本；匯出檔這些根層欄位只列入 `ignored_root_fields`，不匯入。作品內的 genre ID 需與本站對應。
+- 重複匯入相同內容不會再追加作品、更新時間戳或建立多餘備份。
+
+`--apply` 有實際變更時，會先把原檔逐 byte 備份到 `work/import-backups/`，再以同目錄暫存檔原子替換；如讀取後發現目標檔已改動，會停止並要求重新預覽。備份路徑寫入報告，備份及匯出工作目錄已排除於 Git，亦不在公開 assets 白名單內。`--target PATH` 可指定另一份資料檔作測試。
+
+匯入不修改 API、KV、secret 或六小時排程；現有自動同步仍會按番号略過已收錄作品。套用及測試後，檢查 `git diff -- data/movies.json`，再提交正式資料變更，Cloudflare 才會部署該份資料。請先更新本機 `main`，並避免在同一 checkout 同時執行匯入及同步程式。

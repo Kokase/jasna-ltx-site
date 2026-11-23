@@ -20,7 +20,7 @@
   }
   function small(url, w) {
     if (!url) return '';
-    return url.replace(/w=\d+/, 'w=' + (w || 360));
+    return url.replace(/([?&])h=\d+&?/, '$1').replace(/w=\d+/, 'w=' + (w || 800));
   }
   function num(v){v=parseFloat(v)||0;return v?(Math.round(v*10)/10).toFixed(1):'-';}
   function hasSub(it) { return !!(it.subtitle && String(it.subtitle).trim()); }
@@ -49,7 +49,7 @@
   function card(it, badge) {
     var c = el('div', 'xdp-card');
     c.innerHTML =
-      '<div class="cv"><img loading="lazy" decoding="async" src="' + small(it.cover, 360) + '" alt="" onerror="this.style.opacity=.15">' +
+      '<div class="cv"><img loading="lazy" decoding="async" src="' + small(it.cover, 800) + '" alt="" onerror="this.style.opacity=.15">' +
         '<div class="tags">' + (hasSub(it) ? '<span class="tg">中字</span>' : '') +
         (badge ? '<span class="tg sc">' + esc(badge) + '</span>' : '') + '</div></div>' +
       '<div class="meta"><div class="cd">' + esc(it.code || '') + '</div>' +
@@ -305,7 +305,7 @@
     loadData(function () {
       // 帧列表：cover + 长截图切块 + samples
       var frames = [];
-      if (it.cover) frames.push({ src: it.cover.replace(/w=\d+/, 'w=900'), pos: '50% 20%', fit: 'contain' });
+      if (it.cover) frames.push({ src: small(it.cover, 900), pos: '50% 20%', fit: 'contain' });
       if (it.shot) {
         var SHOT_STEPS = 6;
         for (var si = 0; si < SHOT_STEPS; si++) {

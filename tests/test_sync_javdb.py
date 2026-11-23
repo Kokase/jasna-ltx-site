@@ -14,6 +14,20 @@ sync = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sync)
 
 
+class PosterTest(unittest.TestCase):
+    def test_posters_preserve_original_aspect_ratio(self):
+        from urllib.parse import parse_qs, urlsplit
+        source = "https://c0.jdbstatic.com/covers/test.jpg"
+        query = parse_qs(urlsplit(sync.proxy_wrap(source)).query)
+        self.assertEqual(query["w"], ["800"])
+        self.assertNotIn("h", query)
+        self.assertEqual(query["u"], [source])
+
+    def test_screenshot_size_is_preserved(self):
+        source = "https://c0.jdbstatic.com/samples/test.jpg"
+        self.assertIn("w=900", sync.proxy_wrap(source, w=900, h=None))
+
+
 class BackfillTest(unittest.TestCase):
     def setUp(self):
         directory = self.enterContext(tempfile.TemporaryDirectory())

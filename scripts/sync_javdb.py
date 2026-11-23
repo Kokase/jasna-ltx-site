@@ -68,7 +68,7 @@ def find_shot(code):
     return ""
 
 
-def proxy_wrap(u, w=360, h=500):
+def proxy_wrap(u, w=800, h=None):
     """把外链图片转成本站代理地址（避免浏览器 ORB 拦截）"""
     import urllib.parse
     if not u or "/api/img" in u:

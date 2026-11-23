@@ -1,0 +1,30 @@
+.sync-settings-dialog {
+  color: #e4e4e7;
+  background: #18191f;
+  border: 1px solid #42444e;
+  border-radius: 18px;
+  width: min(480px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  padding: 22px;
+  box-sizing: border-box;
+  overflow: auto;
+  font: inherit;
+}
+.sync-settings-dialog::backdrop { background: #0009; }
+.sync-settings-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sync-settings-dialog h2 { font-size: 20px; margin: 0; }
+.sync-settings-dialog .close { width: 44px; height: 44px; font-size: 26px; border: 0; background: transparent; color: inherit; cursor: pointer; }
+.sync-settings-dialog fieldset { border: 0; padding: 0; margin: 16px 0; min-width: 0; }
+.sync-settings-dialog label { display: block; margin-top: 16px; margin-bottom: 6px; font-weight: 600; }
+.sync-settings-dialog input:not([type=checkbox]), .sync-settings-dialog select {
+  display: block; width: 100%; min-height: 44px; border: 1px solid #51535e; border-radius: 8px;
+  background: #23252d; color: inherit; padding: 8px 10px; box-sizing: border-box; font: inherit; color-scheme: dark;
+}
+.sync-settings-dialog .check { display: flex; gap: 10px; align-items: center; margin-top: 18px; min-height: 44px; }
+.sync-settings-dialog .check label { margin: 0; }
+.sync-settings-dialog input[type=checkbox] { width: 20px; height: 20px; accent-color: #ff507c; }
+.sync-settings-dialog small, .sync-settings-dialog .hint { display: block; color: #a9aab4; font-size: 13px; line-height: 1.6; margin-top: 6px; }
+.sync-settings-dialog .save { margin-top: 22px; width: 100%; min-height: 44px; border: 0; border-radius: 9px; color: #fff; background: #c92f58; font: inherit; font-weight: 600; cursor: pointer; }
+.sync-settings-dialog .save:disabled { opacity: .6; cursor: wait; }
+.sync-settings-dialog :focus-visible { outline: 2px solid #ff91ae; outline-offset: 3px; }
+.sync-settings-dialog .status { font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }

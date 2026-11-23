@@ -48,13 +48,13 @@ test('dispatches sync to the deployment repository and accepts GitHub success re
     const upstream = mock.method(globalThis, 'fetch', async (url, options) => {
       assert.equal(url, 'https://api.github.com/repos/Kokase/jasna-ltx-site/actions/workflows/sync.yml/dispatches');
       assert.equal(options.method, 'POST');
-      assert.deepEqual(JSON.parse(options.body), { ref: 'main' });
+      assert.deepEqual(JSON.parse(options.body), { ref: 'main', inputs: { overwrite_existing: true } });
       assert.equal(options.headers.Authorization, 'Bearer test-token');
       return new Response(null, { status });
     });
     try {
       const response = await compiled.fetch(new Request('https://test.invalid/api/sync', { method: 'POST' }),
-        { GITHUB_TOKEN: 'test-token' }, { waitUntil() {} });
+        { GITHUB_TOKEN: 'test-token', LTX_KV: { get: async () => null } }, { waitUntil() {} });
       assert.equal(response.status, 200);
       assert.equal((await response.json()).ok, true);
     } finally {
@@ -72,7 +72,7 @@ test('dispatches JSON-only sync without changing the default workflow contract',
   });
   try {
     const response = await compiled.fetch(new Request('https://test.invalid/api/sync?mode=import',
-      { method: 'POST' }), { GITHUB_TOKEN: 'test-token' }, { waitUntil() {} });
+      { method: 'POST' }), { GITHUB_TOKEN: 'test-token', LTX_KV: { get: async () => null } }, { waitUntil() {} });
     assert.equal(response.status, 200);
     assert.equal((await response.json()).ok, true);
   } finally {
@@ -86,6 +86,31 @@ test('rejects unsupported sync modes before dispatching', async () => {
     { method: 'POST' }), {}, { waitUntil() {} });
   assert.equal(response.status, 400);
   assert.equal((await response.json()).ok, false);
+});
+
+test('manual sync respects the saved overwrite setting and preserves upstream error status', async () => {
+  const { default: compiled } = await import(new URL('../dist/worker/index.js', import.meta.url));
+  const upstream = mock.method(globalThis, 'fetch', async (url, options) => {
+    assert.deepEqual(JSON.parse(options.body), { ref: 'main', inputs: { overwrite_existing: false } });
+    return new Response(null, { status: 403 });
+  });
+  try {
+    const response = await compiled.fetch(new Request('https://test.invalid/api/sync', { method: 'POST' }),
+      { GITHUB_TOKEN: 'fixture', LTX_KV: { get: async () => ({ overwriteExisting: false }) } }, { waitUntil() {} });
+    assert.equal(response.status, 502);
+  } finally { upstream.mock.restore(); }
+});
+
+test('serves schedule settings and rejects unauthenticated writes through the Worker', async () => {
+  const response = await fetch(`${origin}/api/sync-settings`);
+  const result = await response.json();
+  assert.equal(result.data.time, '02:00');
+  assert.equal(result.data.intervalHours, 6);
+  assert.equal(result.data.overwriteExisting, true);
+  const rejected = await fetch(`${origin}/api/sync-settings`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: false }),
+  });
+  assert.equal(rejected.status, 401);
 });
 
 test('serves a deployed-data audit without exposing image or download URLs', async () => {
@@ -142,7 +167,7 @@ test('serves the existing site, downloads, headers and SPA fallback', async () =
 
 test('does not publish server source, configuration or generated bundles', async () => {
   const home = await readFile(new URL('index.html', root), 'utf8');
-  for (const path of ['/wrangler.toml', '/package.json', '/functions/api/sync.js',
+  for (const path of ['/worker.mjs', '/wrangler.toml', '/package.json', '/functions/api/sync.js',
     '/scripts/sync.js', '/scripts/sync-audit.mjs', '/imports/sync-source.json', '/dist/worker/index.js',
     '/.git/config', '/tests/workers.test.mjs']) {
     const response = await fetch(origin + path);

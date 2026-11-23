@@ -154,3 +154,14 @@ API 的原有回應格式保留，POST 成功仍只表示已觸發 Actions。wor
 頁首的「有連結」及「中文」是獨立切換按鈕，可與搜尋、演員、確認狀態、片商、分類、連結類型及想看清單同時生效；條件以 AND 合併，先篩選整份資料，再排序及分批顯示。開啟時會更新結果總數，網址以 `linked=1` 及 `sub=1` 保留狀態，重新載入或使用上一頁亦會還原。
 
 「有連結」只代表紀錄內已有非空連結，包括待確認連結，不驗證外部檔案是否有效；可再疊加「已確認」狀態。原本「中文」只隱藏已載入卡片的方式已改為資料層篩選，避免數量及分頁不一致。
+
+
+### 自動採集時間及已有內容更新
+
+設定選單 →「自動採集設定」可儲存全站共用嘅開關、UTC+8 基準時間、頻率及 `overwriteExisting`。設定存在 `LTX_KV`，關閉瀏覽器後仍會生效；預設沿用每 6 小時一次，即 UTC+8 的 02:00、08:00、14:00、20:00，並啟用已有內容更新。
+
+Cloudflare Cron 每 5 分鐘檢查排程，到期後透過原有 server-side `GITHUB_TOKEN` 觸發 `sync.yml`；GitHub 原本固定 cron 已移除，避免重複執行。`GET /api/sync-settings` 回傳設定、預計下次時間及最近成功 dispatch 時間，唔代表 Actions 工作已完成。Cron 初次部署或修改可能需約 15 分鐘傳播，Actions 啟動亦可能延遲。
+
+`POST /api/sync-settings` 以 `Authorization: Bearer <GitHub token>` 驗證帳戶對 `Kokase/jasna-ltx-site` 有寫入權限，body 為 `{ "enabled": true, "intervalHours": 6, "time": "02:00", "overwriteExisting": true }`。頻率支援 1、2、3、4、6、8、12、24 小時；時間以 5 分鐘為單位。Token 只傳至 GitHub 驗證，唔會寫入 KV 或瀏覽器儲存空間。Fine-grained Token 需要選取此 repo 及 Metadata read；驗證帳戶本身必須具備 repo write access，唔需要新增 Cloudflare secret。
+
+採集嘅 `--overwrite-existing` 會按番号更新新取得嘅非空 metadata（包括封面、標題、演員、評分及字幕等），保留原入庫時間、已確認狀態、互動資料及原有下載連結；來源空白或缺漏唔會清走舊資料。舊 JSON 快照仍以 `--fill-empty-only` 匯入，本站獨有紀錄唔會刪除。手動 `POST /api/sync` 亦沿用此覆蓋設定；`mode=import` 維持只執行 JSON 匯入。

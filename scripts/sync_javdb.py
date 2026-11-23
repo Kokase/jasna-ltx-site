@@ -239,10 +239,31 @@ def candidate_ids():
     return ids
 
 
+UPDATE_FIELDS = {
+    "actors", "cover", "date", "director", "genres", "maker", "rawScore",
+    "score", "series", "shot", "subtitle", "title", "url", "votes",
+}
+
+
+def update_existing(current, incoming):
+    changed = False
+    for field in UPDATE_FIELDS:
+        value = incoming.get(field)
+        if value is None or value == "" or value == [] or value == 0:
+            continue
+        if isinstance(value, str) and not value.strip():
+            continue
+        if current.get(field) != value:
+            current[field] = value
+            changed = True
+    return changed
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--max-add", type=int, default=20)
+    ap.add_argument("--overwrite-existing", action="store_true")
     ap.add_argument("--backfill", type=int, default=15)
     args = ap.parse_args()
 
@@ -252,13 +273,14 @@ def main():
 
     data = json.load(open(DATA, encoding="utf-8"))
     items = data.get("items") or []
-    known = {(it.get("code") or "").upper() for it in items}
+    known = {(it.get("code") or "").strip().upper(): it for it in items}
     log("现有作品:", len(items))
 
     ids = candidate_ids()
     log("候选视频:", len(ids))
 
     added = []
+    updated = 0
     for vid in ids:
         if len(added) >= args.max_add:
             break
@@ -266,9 +288,13 @@ def main():
         it = parse_detail(html, (base or BASES[0]) + "/v/" + vid)
         if not it:
             continue
-        if it["code"].upper() in known:
+        key = it["code"].strip().upper()
+        if key in known:
+            if args.overwrite_existing and update_existing(known[key], it):
+                updated += 1
+                log("  updated", key)
             continue
-        known.add(it["code"].upper())
+        known[key] = it
         added.append(it)
         log("  + %-12s %s  %s" % (it["code"], it["date"], it["title"][:34]))
         time.sleep(0.3)
@@ -325,12 +351,12 @@ def main():
             log("   写已查记录失败:", str(e)[:50])
         log("补录字幕:", filled, " 累计已查:", len(checked))
 
-    log("本次新增:", len(added))
+    log("本次新增:", len(added), "updated:", updated)
     if args.dry_run:
         if added:
             log("样例:", json.dumps(added[0], ensure_ascii=False)[:400])
         return 0
-    if not added and filled == 0 and shot_fixed == 0:
+    if not added and updated == 0 and filled == 0 and shot_fixed == 0:
         return 0
 
     data["items"] = added + items

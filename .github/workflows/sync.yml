@@ -1,9 +1,11 @@
 name: 自动更新 Jasna-LTX 数据
 on:
-  schedule:
-    - cron: '0 */6 * * *'
   workflow_dispatch:
     inputs:
+      overwrite_existing:
+        description: Update existing records with non-empty collected fields
+        type: boolean
+        default: true
       mode:
         description: 'Sync scope'
         type: choice
@@ -41,7 +43,13 @@ jobs:
 
       - name: 抓取 JavDB 最新作品
         if: inputs.mode != 'import'
-        run: python scripts/sync_javdb.py --max-add 20
+        env:
+          OVERWRITE_EXISTING: ${{ inputs.overwrite_existing }}
+        run: |
+          python -m unittest discover -s tests -p 'test_sync_javdb.py'
+          args=()
+          if [ "$OVERWRITE_EXISTING" != "false" ]; then args+=(--overwrite-existing); fi
+          python scripts/sync_javdb.py --max-add 20 "${args[@]}"
 
       - name: 检查是否有变更
         id: verify

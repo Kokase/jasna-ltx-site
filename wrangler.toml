@@ -1,6 +1,9 @@
 name = "jasna-ltx-site"
 compatibility_date = "2026-11-20"
-main = "dist/worker/index.js"
+main = "worker.mjs"
+
+[triggers]
+crons = ["*/5 * * * *"]
 
 [build]
 command = "npm run build"

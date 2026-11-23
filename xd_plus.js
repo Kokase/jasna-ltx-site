@@ -407,7 +407,7 @@
   /* ---------- 头部按钮 ---------- */
   function addButton() {
     if ($('#xdp-open')) return;
-    var rand = document.querySelector('.header button.random');
+    var rand = document.querySelector('.header button.random:not(.filter-toggle)');
     if (!rand) return;
     var b = document.createElement('button');
     b.id = 'xdp-open'; b.type = 'button';

@@ -50,7 +50,7 @@
     var c = el('div', 'xdp-card');
     c.innerHTML =
       '<div class="cv"><img loading="lazy" decoding="async" src="' + small(it.cover, 800) + '" alt="" onerror="this.style.opacity=.15">' +
-        '<div class="tags">' + (hasSub(it) ? '<span class="tg">中字</span>' : '') +
+        '<div class="tags">' +
         (badge ? '<span class="tg sc">' + esc(badge) + '</span>' : '') + '</div></div>' +
       '<div class="meta"><div class="cd">' + esc(it.code || '') + '</div>' +
       '<div class="ti">' + esc(title(it)) + '</div>' +

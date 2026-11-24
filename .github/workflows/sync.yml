@@ -60,12 +60,3 @@ jobs:
           git add data/movies.json
           git commit -m "chore: 自动同步 LTX 资源 $(date -u +%Y-%m-%dT%H:%M:%SZ) [skip ci]" || echo "无变更可提交"
           git push
-
-      - name: 安装 Wrangler
-        run: npm install wrangler@latest --no-audit --no-fund
-
-      - name: 部署到 Cloudflare Pages
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler pages deploy . --project-name=jasna-ltx --branch=main --commit-dirty=true
